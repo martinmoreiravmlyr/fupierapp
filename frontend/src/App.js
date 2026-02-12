@@ -135,15 +135,24 @@ function App() {
         audio: false,
         video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
       };
+      if (!navigator.mediaDevices?.getUserMedia) {
+        throw new Error('getUserMedia no soportado en este navegador');
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       inputVideo.srcObject = stream;
+
       inputVideo.onloadeddata = () => {
         log('4. Cámara lista. Cargando IA...');
         loadFaceMesh();
       };
+
+      inputVideo.onerror = (e) => {
+        log('ERROR de video: ' + (e?.message || 'desconocido'));
+      };
     } catch (err) {
-      log('ERROR FATAL: ' + err.message + '\n¿Es HTTPS?');
-      alert('Error: ' + err.message);
+      log('ERROR FATAL: ' + err.message + '\nRevisa permisos de cámara y que la conexión sea HTTPS.');
+      alert('Error: ' + err.message + '\nRevisa permisos de cámara y que la conexión sea HTTPS.');
     }
   };
 
