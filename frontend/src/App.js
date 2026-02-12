@@ -118,7 +118,8 @@ function App() {
   };
 
   const init = async () => {
-    log('1. Iniciando...');
+    log('1. Iniciandao...');
+    setStatus('Pidiendo permiso de cámara...', 'yellow');
     const startScreen = document.getElementById('start-screen');
     if (startScreen) startScreen.style.display = 'none';
 
@@ -128,7 +129,9 @@ function App() {
     if (!voiceAudio || !bgVideo || !inputVideo) return;
 
     try {
-      await voiceAudio.play().catch(() => {});
+      await voiceAudio.play().catch((e) => {
+        log('Audio autoplay bloqueado (normal en algunos navegadores): ' + e.message);
+      });
       voiceAudio.pause();
       voiceAudio.currentTime = 0;
       setAudioReady(true);
@@ -157,6 +160,7 @@ function App() {
         clearTimeout(watchdog);
         inputVideo.srcObject = stream;
         setStatus('Permiso concedido. Preparando video...', '#0f0');
+        log('Stream obtenido. Tracks: ' + (stream.getTracks ? stream.getTracks().length : 'n/a'));
       } catch (camErr) {
         clearTimeout(watchdog);
         // Reintento con constraints sin facingMode por si el dispositivo no soporta 'user'
@@ -165,6 +169,7 @@ function App() {
           const fallbackStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
           inputVideo.srcObject = fallbackStream;
           setStatus('Permiso concedido (fallback). Preparando video...', '#0f0');
+          log('Stream fallback obtenido. Tracks: ' + (fallbackStream.getTracks ? fallbackStream.getTracks().length : 'n/a'));
         } catch (fallbackErr) {
           throw fallbackErr;
         }
