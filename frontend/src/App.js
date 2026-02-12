@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { FaceMesh } from '@mediapipe/face_mesh';
 import './styles.css';
 
@@ -26,9 +26,10 @@ function App() {
   const voiceAudioRef = useRef(null);
   const inputVideoRef = useRef(null);
 
-  const [audioReady, setAudioReady] = useState(false);
-  const [peakOpenness, setPeakOpenness] = useState(0.3);
-  const [isRunning, setIsRunning] = useState(false);
+  // Usar refs en vez de state para valores accedidos dentro de callbacks asíncronos
+  const audioReadyRef = useRef(false);
+  const peakOpennessRef = useRef(0.3);
+  const isRunningRef = useRef(false);
   const faceMeshRef = useRef(null);
   const animRef = useRef(null);
 
@@ -57,34 +58,36 @@ function App() {
       const rightEAR = getEAR(landmarks, EAR_POINTS.right);
       const currentEAR = (leftEAR + rightEAR) / 2;
 
-      setPeakOpenness((prev) => {
-        let next = prev;
-        if (currentEAR > prev) next = currentEAR;
-        else next = prev * 0.99;
-        if (next < 0.2) next = 0.2;
-        return next;
-      });
+      // Actualizar peakOpenness directamente en la ref
+      let peak = peakOpennessRef.current;
+      if (currentEAR > peak) {
+        peak = currentEAR;
+      } else {
+        peak = peak * 0.99;
+      }
+      if (peak < 0.2) peak = 0.2;
+      peakOpennessRef.current = peak;
 
-      const threshold = (peakOpenness || 0.3) * 0.6;
+      const threshold = peak * 0.6;
 
       if (currentEAR < threshold) {
         statusEl.innerText = '🔊 SONANDO';
         statusEl.style.color = '#0f0';
-        if (audioReady && voiceAudio.paused) voiceAudio.play().catch(() => {});
+        if (audioReadyRef.current && voiceAudio.paused) voiceAudio.play().catch(() => {});
       } else {
         statusEl.innerText = '🔇 SILENCIO';
         statusEl.style.color = 'white';
-        if (audioReady && !voiceAudio.paused) voiceAudio.pause();
+        if (audioReadyRef.current && !voiceAudio.paused) voiceAudio.pause();
       }
     } else {
       statusEl.innerText = 'SIN ROSTRO';
       statusEl.style.color = 'red';
-      if (audioReady && !voiceAudio.paused) voiceAudio.pause();
+      if (audioReadyRef.current && !voiceAudio.paused) voiceAudio.pause();
     }
   };
 
   const detectLoop = async () => {
-    if (!isRunning) return;
+    if (!isRunningRef.current) return;
     const faceMesh = faceMeshRef.current;
     const inputVideo = inputVideoRef.current;
     if (faceMesh && inputVideo?.readyState >= 2) {
@@ -95,7 +98,7 @@ function App() {
     animRef.current = requestAnimationFrame(detectLoop);
   };
 
-  const loadFaceMesh = () => {
+  const loadFaceMesh = async () => {
     try {
       const faceMesh = new FaceMesh({
         locateFile: (file) =>
@@ -109,16 +112,22 @@ function App() {
       });
       faceMesh.onResults(onResults);
       faceMeshRef.current = faceMesh;
-      setIsRunning(true);
-      detectLoop();
+
       log('5. IA Cargando modelo (espera 3-5 seg)...');
+
+      // Esperar a que el modelo esté completamente inicializado
+      await faceMesh.initialize();
+      log('6. Modelo cargado. Iniciando detección...');
+
+      isRunningRef.current = true;
+      detectLoop();
     } catch (e) {
       log('ERROR IA: ' + e.message);
     }
   };
 
   const init = async () => {
-    log('1. Iniciandao...');
+    log('1. Iniciando...');
     setStatus('Pidiendo permiso de cámara...', 'yellow');
     const startScreen = document.getElementById('start-screen');
     if (startScreen) startScreen.style.display = 'none';
@@ -137,7 +146,7 @@ function App() {
       });
       voiceAudio.pause();
       voiceAudio.currentTime = 0;
-      setAudioReady(true);
+      audioReadyRef.current = true;
       log('2. Audio desbloqueado.');
 
       bgVideo.volume = 1.0;
@@ -162,6 +171,7 @@ function App() {
         const stream = await navigator.mediaDevices.getUserMedia(constraints);
         clearTimeout(watchdog);
         inputVideo.srcObject = stream;
+        await inputVideo.play();
         setStatus('Permiso concedido. Preparando video...', '#0f0');
         log('Stream obtenido. Tracks: ' + (stream.getTracks ? stream.getTracks().length : 'n/a'));
       } catch (camErr) {
@@ -171,6 +181,7 @@ function App() {
         try {
           const fallbackStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
           inputVideo.srcObject = fallbackStream;
+          await inputVideo.play();
           setStatus('Permiso concedido (fallback). Preparando video...', '#0f0');
           log('Stream fallback obtenido. Tracks: ' + (fallbackStream.getTracks ? fallbackStream.getTracks().length : 'n/a'));
         } catch (fallbackErr) {
@@ -200,7 +211,7 @@ function App() {
 
   useEffect(() => {
     return () => {
-      setIsRunning(false);
+      isRunningRef.current = false;
       if (animRef.current) cancelAnimationFrame(animRef.current);
       faceMeshRef.current?.close?.();
       const tracks = inputVideoRef.current?.srcObject?.getTracks?.() || [];
@@ -237,7 +248,6 @@ function App() {
       <video
         id="input-video"
         ref={inputVideoRef}
-        autoPlay
         muted
         playsInline
         webkit-playsinline="true"
