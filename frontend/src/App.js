@@ -73,7 +73,7 @@ function App() {
       if (currentEAR < threshold) {
         statusEl.innerText = '🔊 SONANDO';
         statusEl.style.color = '#0f0';
-        if (audioReadyRef.current && voiceAudio.paused) voiceAudio.play().catch(() => {});
+        if (audioReadyRef.current && voiceAudio.paused) voiceAudio.play().catch(() => { });
       } else {
         statusEl.innerText = '🔇 SILENCIO';
         statusEl.style.color = 'white';
@@ -93,7 +93,7 @@ function App() {
     if (faceMesh && inputVideo?.readyState >= 2) {
       try {
         await faceMesh.send({ image: inputVideo });
-      } catch (_) {}
+      } catch (_) { }
     }
     animRef.current = requestAnimationFrame(detectLoop);
   };
@@ -167,6 +167,24 @@ function App() {
         setStatus('Esperando permiso de cámara...', 'yellow');
       }, 5000);
 
+      // Registrar handlers ANTES de asignar srcObject y play()
+      // para no perder el evento loadeddata
+      const loadTimeout = setTimeout(() => {
+        log('El video no entregó datos. Revisa que la cámara no esté en uso por otra app.');
+        setStatus('Sin datos de cámara.', 'red');
+      }, 8000);
+
+      inputVideo.onloadeddata = () => {
+        log('4. Cámara lista. Cargando IA...');
+        clearTimeout(loadTimeout);
+        loadFaceMesh();
+      };
+
+      inputVideo.onerror = (e) => {
+        clearTimeout(loadTimeout);
+        log('ERROR de video: ' + (e?.message || 'desconocido'));
+      };
+
       try {
         const stream = await navigator.mediaDevices.getUserMedia(constraints);
         clearTimeout(watchdog);
@@ -188,21 +206,6 @@ function App() {
           throw fallbackErr;
         }
       }
-
-      const loadTimeout = setTimeout(() => {
-        log('El video no entregó datos. Revisa que la cámara no esté en uso por otra app.');
-        setStatus('Sin datos de cámara.', 'red');
-      }, 8000);
-
-      inputVideo.onloadeddata = () => {
-        log('4. Cámara lista. Cargando IA...');
-        loadFaceMesh();
-        clearTimeout(loadTimeout);
-      };
-
-      inputVideo.onerror = (e) => {
-        log('ERROR de video: ' + (e?.message || 'desconocido'));
-      };
     } catch (err) {
       log('ERROR FATAL: ' + err.message + '\nRevisa permisos de cámara y que la conexión sea HTTPS.');
       alert('Error: ' + err.message + '\nRevisa permisos de cámara y que la conexión sea HTTPS.');
