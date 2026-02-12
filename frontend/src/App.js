@@ -139,8 +139,18 @@ function App() {
         throw new Error('getUserMedia no soportado en este navegador');
       }
 
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
-      inputVideo.srcObject = stream;
+      const watchdog = setTimeout(() => {
+        log('Permiso de cámara tardando... revisa el prompt del navegador.');
+      }, 5000);
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        clearTimeout(watchdog);
+        inputVideo.srcObject = stream;
+      } catch (camErr) {
+        clearTimeout(watchdog);
+        throw camErr;
+      }
 
       inputVideo.onloadeddata = () => {
         log('4. Cámara lista. Cargando IA...');
