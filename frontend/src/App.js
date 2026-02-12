@@ -76,7 +76,7 @@ function App() {
         statusEl.innerText = '🔊 SONANDO';
         statusEl.style.color = '#0f0';
         if (audioReadyRef.current && voiceAudio.paused) voiceAudio.play().catch(() => { });
-        if (bgVideo) bgVideo.volume = 0.15;
+        if (bgVideo) bgVideo.volume = 0.40;
       } else {
         // Ojos abiertos → pausar locución + restaurar volumen del video BG
         statusEl.innerText = '🔇 SILENCIO';
