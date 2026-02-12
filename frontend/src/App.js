@@ -126,7 +126,10 @@ function App() {
     const voiceAudio = voiceAudioRef.current;
     const bgVideo = bgVideoRef.current;
     const inputVideo = inputVideoRef.current;
-    if (!voiceAudio || !bgVideo || !inputVideo) return;
+    if (!voiceAudio || !bgVideo || !inputVideo) {
+      log('Refs no listos: voiceAudio=' + !!voiceAudio + ' bgVideo=' + !!bgVideo + ' inputVideo=' + !!inputVideo);
+      return;
+    }
 
     try {
       await voiceAudio.play().catch((e) => {
