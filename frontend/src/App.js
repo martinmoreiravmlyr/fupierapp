@@ -48,6 +48,7 @@ function App() {
   const onResults = (results) => {
     const statusEl = statusRef.current;
     const voiceAudio = voiceAudioRef.current;
+    const bgVideo = bgVideoRef.current;
     if (!statusEl || !voiceAudio) return;
 
     statusEl.innerText = '● ACTIVO';
@@ -71,18 +72,23 @@ function App() {
       const threshold = peak * 0.6;
 
       if (currentEAR < threshold) {
+        // Ojos cerrados → reproducir locución + bajar volumen del video BG
         statusEl.innerText = '🔊 SONANDO';
         statusEl.style.color = '#0f0';
         if (audioReadyRef.current && voiceAudio.paused) voiceAudio.play().catch(() => { });
+        if (bgVideo) bgVideo.volume = 0.15;
       } else {
+        // Ojos abiertos → pausar locución + restaurar volumen del video BG
         statusEl.innerText = '🔇 SILENCIO';
         statusEl.style.color = 'white';
         if (audioReadyRef.current && !voiceAudio.paused) voiceAudio.pause();
+        if (bgVideo) bgVideo.volume = 1.0;
       }
     } else {
       statusEl.innerText = 'SIN ROSTRO';
       statusEl.style.color = 'red';
       if (audioReadyRef.current && !voiceAudio.paused) voiceAudio.pause();
+      if (bgVideo) bgVideo.volume = 1.0;
     }
   };
 
