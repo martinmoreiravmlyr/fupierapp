@@ -37,6 +37,13 @@ function App() {
     if (logRef.current) logRef.current.innerText = msg;
   };
 
+  const setStatus = (msg, color = 'white') => {
+    if (statusRef.current) {
+      statusRef.current.innerText = msg;
+      statusRef.current.style.color = color;
+    }
+  };
+
   const onResults = (results) => {
     const statusEl = statusRef.current;
     const voiceAudio = voiceAudioRef.current;
@@ -131,6 +138,7 @@ function App() {
       bgVideo.play().catch((e) => log('Error BG Video: ' + e.message));
 
       log('3. Solicitando cámara...');
+      setStatus('Pidiendo permiso de cámara...', 'yellow');
       const constraints = {
         audio: false,
         video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
@@ -141,20 +149,36 @@ function App() {
 
       const watchdog = setTimeout(() => {
         log('Permiso de cámara tardando... revisa el prompt del navegador.');
+        setStatus('Esperando permiso de cámara...', 'yellow');
       }, 5000);
 
       try {
         const stream = await navigator.mediaDevices.getUserMedia(constraints);
         clearTimeout(watchdog);
         inputVideo.srcObject = stream;
+        setStatus('Permiso concedido. Preparando video...', '#0f0');
       } catch (camErr) {
         clearTimeout(watchdog);
-        throw camErr;
+        // Reintento con constraints sin facingMode por si el dispositivo no soporta 'user'
+        log('Fallo al obtener cámara (intentando fallback): ' + camErr.message);
+        try {
+          const fallbackStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+          inputVideo.srcObject = fallbackStream;
+          setStatus('Permiso concedido (fallback). Preparando video...', '#0f0');
+        } catch (fallbackErr) {
+          throw fallbackErr;
+        }
       }
+
+      const loadTimeout = setTimeout(() => {
+        log('El video no entregó datos. Revisa que la cámara no esté en uso por otra app.');
+        setStatus('Sin datos de cámara.', 'red');
+      }, 8000);
 
       inputVideo.onloadeddata = () => {
         log('4. Cámara lista. Cargando IA...');
         loadFaceMesh();
+        clearTimeout(loadTimeout);
       };
 
       inputVideo.onerror = (e) => {
